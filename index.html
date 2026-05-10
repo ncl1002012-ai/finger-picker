@@ -25,7 +25,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 .screen.active{display:flex}
 
 /* ── Canvases ── */
-canvas{position:fixed;inset:0;bottom:60px;pointer-events:none}
+#lc,#pc{position:fixed;inset:0;bottom:60px;pointer-events:none}
 #lc{z-index:8}#pc{z-index:15}
 
 /* ── Dots ── */
@@ -64,26 +64,12 @@ canvas{position:fixed;inset:0;bottom:60px;pointer-events:none}
 .mt{font-size:.78rem;font-weight:700;color:var(–txt);margin-bottom:.12rem}
 .md{font-family:‘Space Mono’,monospace;font-size:.56rem;color:var(–dim);line-height:1.5}
 
-/* ── Winner / reset overlay ── */
-#wb{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%) scale(0);z-index:30;text-align:center;pointer-events:none;transition:transform .5s cubic-bezier(.34,1.56,.64,1)}
-#wb.show{transform:translate(-50%,-50%) scale(1)}
-#wb .wl{font-family:‘Space Mono’,monospace;font-size:clamp(.55rem,1.8vw,.8rem);letter-spacing:.35em;text-transform:uppercase;color:var(–dim);margin-bottom:.3em}
-#wb .wn{font-size:clamp(2rem,10vw,5rem);font-weight:800;line-height:1;filter:drop-shadow(0 0 40px currentColor)}
-#rh{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);font-family:‘Space Mono’,monospace;font-size:.65rem;letter-spacing:.22em;text-transform:uppercase;color:var(–dim);opacity:0;transition:opacity .5s;z-index:30;pointer-events:none;text-align:center}
-#rh.show{opacity:1}
-
-/* ── Multi-winner controls ── */
-#mw-row{position:fixed;top:1rem;right:1rem;z-index:20;display:none;align-items:center;gap:.5rem}
-#mw-row.show{display:flex}
-#mw-row label{font-family:‘Space Mono’,monospace;font-size:.6rem;color:var(–dim);letter-spacing:.1em}
-#mw-count{background:var(–sur);border:1px solid var(–bor);color:var(–acc);font-family:‘Space Mono’,monospace;font-size:.8rem;font-weight:700;width:36px;text-align:center;border-radius:6px;padding:.2rem;-webkit-appearance:none}
-
 /* ── SPINNER SCREEN ── */
 #spinner-screen{gap:0}
 
 #spinner-hint{font-family:‘Space Mono’,monospace;font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;color:var(–dim);margin-bottom:.8rem;text-align:center;flex-shrink:0}
 #spinner-wrap{position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-#spinner-canvas{display:block;border-radius:50%;filter:drop-shadow(0 0 24px rgba(0,255,204,.25))}
+#spinner-canvas{display:block;border-radius:50%;filter:drop-shadow(0 0 24px rgba(0,255,204,.25));pointer-events:auto;touch-action:none;cursor:pointer}
 #spin-tap-btn{position:absolute;inset:0;border-radius:50%;background:none;border:none;cursor:pointer;touch-action:manipulation;z-index:5;-webkit-tap-highlight-color:transparent}
 #spinner-result{font-family:‘Space Mono’,monospace;font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(–acc);text-align:center;margin-top:.8rem;opacity:0;transition:opacity .4s;height:1.4em;flex-shrink:0}
 #spinner-result.show{opacity:1}
@@ -126,10 +112,6 @@ canvas{position:fixed;inset:0;bottom:60px;pointer-events:none}
   <div class="mo" data-mode="tap"><div class="mr"></div><div><div class="mt">Tap to Place</div><div class="md">Tap drops a dot.<br>No finger limit.</div></div></div>
 </div>
 
-<!-- Multi-winner count -->
-
-<div id="mw-row"><label>WINNERS</label><input id="mw-count" type="number" min="1" max="20" value="1"></div>
-
 <!-- Finger Picker Screen -->
 
 <div id="finger-screen" class="screen active">
@@ -140,8 +122,6 @@ canvas{position:fixed;inset:0;bottom:60px;pointer-events:none}
 </div>
 <div id="dc">0 dots</div>
 <button id="pbtn">Pick ✦</button>
-<div id="wb"><div class="wl" id="wl-label">chosen</div><div class="wn" id="wn">✦</div></div>
-<div id="rh">tap anywhere to reset</div>
 
 <!-- Spinner Screen -->
 
@@ -248,7 +228,6 @@ function flashAll(dl){
 let currentScreen='finger-screen';
 const navBtns=document.querySelectorAll('.nav-btn');
 const navInd=document.getElementById('nav-ind');
-const mwRow=document.getElementById('mw-row');
 const sbEl=document.getElementById('sb');
 const spEl=document.getElementById('sp');
 
@@ -269,7 +248,6 @@ function switchScreen(id){
   document.getElementById('dc').style.display=id==='finger-screen'?'':'none';
   document.getElementById('pbtn').style.display=id==='finger-screen'?'':'none';
   document.getElementById('sb').style.display=id==='finger-screen'?'':'none';
-  mwRow.classList.toggle('show',id==='finger-screen');
   if(id!=='finger-screen'){document.getElementById('wb').classList.remove('show');document.getElementById('rh').classList.remove('show')}
   if(id==="spinner-screen")drawWheel();
 }
@@ -294,11 +272,8 @@ const idleEl=document.getElementById('finger-idle');
 const isubEl=document.getElementById('isub');
 const dcEl=document.getElementById('dc');
 const pbtn=document.getElementById('pbtn');
-const wbEl=document.getElementById('wb');
-const wlLabel=document.getElementById('wl-label');
+
 const wnEl=document.getElementById('wn');
-const rhEl=document.getElementById('rh');
-const mwCount=document.getElementById('mw-count');
 
 function toggleSP(e){e.stopPropagation();e.preventDefault();spOpen=!spOpen;spEl.classList.toggle('open',spOpen)}
 sbEl.addEventListener('touchstart',toggleSP,{passive:false});
@@ -354,38 +329,29 @@ function doPick(){
   flash();
 }
 
-function reveal(){
-  if(!dots.size){fingerReset();return}
-  FST='result';bolts=[];
-  const numWinners=Math.min(parseInt(mwCount.value)||1,dots.size);
-  const ids=[...dots.keys()];
-  // shuffle
-  for(let i=ids.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ids[i],ids[j]]=[ids[j],ids[i]]}
-  const winIds=new Set(ids.slice(0,numWinners));
 
-  let winColors=[];
+
+function reveal(){
+  if(!dots.size){fingerReset();return;}
+  FST='result';bolts=[];
+  const ids=[...dots.keys()];
+  const wid=ids[Math.floor(Math.random()*ids.length)];
   for(const[id,d]of dots){
-    if(winIds.has(id)){
+    if(id===wid){
       d.el.style.transition='transform .2s cubic-bezier(.34,1.56,.64,1)';
       d.el.classList.add('winner');d.el.style.zIndex='25';
-      burst(d.x,d.y,d.color.bg,60);
-      winColors.push(d.color);
+      burst(d.x,d.y,d.color.bg,70);
     } else {
       d.el.classList.add('loser');setTimeout(()=>d.el.remove(),350);
     }
   }
-  const firstColor=winColors[0];
-  wlLabel.textContent=numWinners>1?`${numWinners} chosen`:'chosen';
-  wnEl.textContent=numWinners>1?'✦ '.repeat(numWinners).trim():'✦ CHOSEN ✦';
-  wnEl.style.color=firstColor.bg;wnEl.style.filter=`drop-shadow(0 0 30px ${firstColor.bg})`;
-  wbEl.classList.add('show');rhEl.classList.add('show');dcEl.textContent='';
+  dcEl.textContent='tap to reset';
 }
-
 function fingerReset(){
   clearTimeout(htimer);FST='idle';bolts=[];
   for(const[,d]of dots)d.el.remove();
   dots.clear();cpool=[...Array(COLORS.length).keys()];uid=0;
-  wbEl.classList.remove('show');rhEl.classList.remove('show');pbtn.classList.remove('show');
+  pbtn.classList.remove('show');
   idleEl.style.opacity='1';dcEl.textContent='0 dots';dcEl.classList.remove('on');
 }
 
@@ -393,7 +359,7 @@ function fingerReset(){
 function holdStart(e){
   if(currentScreen!=='finger-screen')return;
   e.preventDefault();
-  if(FST==='result'){fingerReset();return}
+  if(FST==='result'){fingerReset();return;}
   if(FST==='animating')return;
   for(const t of e.changedTouches)makeDot(t.identifier,t.clientX,t.clientY);
   FST='holding';idleEl.style.opacity='0';clearTimeout(htimer);htimer=setTimeout(doPick,1200);
@@ -448,12 +414,7 @@ pbtn.addEventListener('touchstart',e=>{e.stopPropagation();e.preventDefault();do
 pbtn.addEventListener('click',e=>{e.stopPropagation();doPick()});
 
 // reset on tap when result shown
-document.addEventListener('touchstart',e=>{
-  if(FST==='result'&&currentScreen==='finger-screen'){
-    const skip=[pbtn,sbEl,spEl,...document.querySelectorAll('.nav-btn')];
-    if(!skip.some(el=>el.contains(e.target)))fingerReset();
-  }
-},{passive:true});
+
 
 // ═══════════════════════════════════════════════════════════════════
 // SPINNER
@@ -577,11 +538,12 @@ function doSpin() {
   requestAnimationFrame(step);
 }
 
-document.addEventListener('touchstart', e => {
-  if (currentScreen !== 'spinner-screen') return;
+SC.addEventListener('touchstart', e => {
+  e.stopPropagation();
   e.preventDefault();
   doSpin();
 }, { passive: false });
+SC.style.touchAction = 'none';
 
 setTimeout(drawWheel, 50);
 addEventListener('resize', () => { if (currentScreen === 'spinner-screen') drawWheel(); });
